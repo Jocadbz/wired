@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WIRED</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>WELCOME TO THE WIRED</h1>
+    <p class="warning">Warning: New users should review the <a href="rules.html">rules and guidelines</a> before proceeding.</p>
+    <nav>
+      <button onclick="window.location.href='index.html'">Posts</button>
+      <button onclick="window.location.href='about.html'">About</button>
+      <button onclick="window.location.href='rules.html'">Rules</button>
+    </nav>
+    <div id="post-details">
+      <h2 id="post-title"></h2>
+      <p id="post-url"></p>
+      <p id="post-description"></p>
+      <img id="post-image" alt="Post image" style="display: none;">
+    </div>
+    <h3>Comments</h3>
+    <div id="comments-list"></div>
+    <form id="comment-form" style="display: none;">
+      <input type="text" id="comment-text" placeholder="Enter your comment" required>
+      <button type="submit">Comment</button>
+    </form>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WIRED</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>WELCOME TO THE WIRED</h1>
+    <p class="warning">Warning: New users should review the <a href="rules.html">rules and guidelines</a> before proceeding.</p>
+    <nav>
+      <button onclick="window.location.href='index.html'">Posts</button>
+      <button onclick="window.location.href='about.html'">About</button>
+      <button onclick="window.location.href='rules.html'">Rules</button>
+    </nav>
+    <div id="auth">
+      <input type="text" id="username" placeholder="Username">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="register()">Register</button>
+      <button onclick="login()">Login</button>
+      <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+    </div>
+    <form id="post-form">
+      <input type="text" id="title" placeholder="Title" required>
+      <input type="url" id="url" placeholder="URL (optional)">
+      <input type="text" id="description" placeholder="Description" required>
+      <input type="url" id="imageUrl" placeholder="Image URL (optional)">
+      <button type="submit">Submit</button>
+    </form>
+    <div id="admin-tools" style="display: none;">
+      <input type="text" id="ban-username" placeholder="Ban Username">
+      <button onclick="banUser()">Ban</button>
+      <input type="text" id="ban-ip" placeholder="Ban IP">
+      <button onclick="banIP()">Ban</button>
+    </div>
+    <div class="sort-buttons">
+      <button onclick="loadPosts('date')">Sort by Date</button>
+      <button onclick="loadPosts('votes')">Sort by Votes</button>
+    </div>
+    <ol id="posts-list"></ol>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

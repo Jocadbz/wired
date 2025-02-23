@@ -1,0 +1,155 @@
+/* REMINDER FOR MARGIN, ETC. SIZING: Size order is clockwise (top, right, bottom, left) */
+
+* {
+  font-family: 'VT323', monospace; /* Retro terminal font */
+  font-size: 16px;
+}
+
+body {
+  background: #0a0a0a url('lain-bg.gif') repeat fixed center; /* Black with animated GIF */
+  color: #00ff00; /* Neon green text */
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  text-decoration: none;
+  font-size: 3.5em;
+  text-align: center;
+  margin: 0.5em auto;
+  color: #00cc00; /* Slightly darker green */
+}
+
+h2 {
+  text-align: center;
+  text-decoration: underline;
+  font-size: 175%;
+  margin: 0.5em auto;
+  color: #00ff00;
+}
+
+h3 {
+  font-size: 150%;
+  text-decoration: underline;
+  margin: 0.5em 0;
+  color: #00ff00;
+}
+
+a:link {
+  text-decoration: none;
+  color: #66ff66; /* Lighter green */
+  font-style: italic;
+}
+
+a:visited {
+  text-decoration: none;
+  color: #33cc33; /* Muted green */
+}
+
+a:hover {
+  text-decoration: underline;
+  line-height: 1.4em;
+  color: #aaaaaa; /* Grayish hover */
+}
+
+.container {
+  border-width: 0.5em;
+  border-color: #333333; /* Dark gray border */
+  background-color: rgba(10, 10, 10, 0.9); /* Semi-transparent black */
+  border-style: solid;
+  margin: 2em auto;
+  padding: 1em 2em;
+  width: 40em;
+  max-width: 90%;
+  box-sizing: border-box;
+}
+
+nav {
+  text-align: center;
+  margin-bottom: 1em;
+}
+
+#auth, form, #admin-tools, .sort-buttons {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+input {
+  margin-right: 10px;
+  padding: 5px;
+  width: 150px;
+  background-color: #1a1a1a; /* Darker gray */
+  color: #00ff00;
+  border: 1px solid #555555; /* Medium gray */
+}
+
+button {
+  padding: 5px 10px;
+  background-color: #333333; /* Dark gray */
+  color: #00ff00;
+  border: 0.2em solid #555555;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #555555; /* Lighter gray */
+}
+
+.post, .comment {
+  margin: 10px 0;
+  border-width: 0.25em;
+  border-color: #555555;
+  border-style: solid;
+  background: #1a1a1a; /* Dark gray background */
+  padding: 1em;
+  color: #00ff00;
+}
+
+.post img {
+  max-width: 100px;
+  margin-top: 5px;
+  display: block;
+}
+
+#post-details img {
+  max-width: 100%; /* Fit container width */
+  height: auto;
+  margin-top: 5px;
+  display: block;
+}
+
+.upvote-btn, .delete-btn, .pin-btn, .unpin-btn {
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.pinned {
+  font-weight: bold;
+  color: #00ffff; /* Cyan for pinned posts */
+}
+
+#posts-list {
+  padding-left: 2em;
+}
+
+#comments-list {
+  padding-left: 2em;
+}
+
+#post-details {
+  margin-bottom: 20px;
+}
+
+.warning {
+  text-align: center;
+  color: #00ffff; /* Cyan for warning */
+  font-size: 14px;
+  margin: 0.5em 0;
+}
+
+.rules-content, .about-content {
+  padding: 1em;
+  line-height: 1.6;
+  color: #00ff00;
+}
