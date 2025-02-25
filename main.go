@@ -753,11 +753,26 @@ func deleteComment(w http.ResponseWriter, r *http.Request) {
         if post.ID == postID {
             for j, comment := range post.Comments {
                 if comment.ID == commentID {
+                    // Delete all replies to this comment first
+                    newReplies := []Reply{}
+                    deletedReplies := 0
+                    for _, reply := range post.Replies {
+                        if reply.CommentID == commentID {
+                            deletedReplies++
+                        } else {
+                            newReplies = append(newReplies, reply)
+                        }
+                    }
+                    posts[i].Replies = newReplies
+
+                    // Now delete the comment
                     posts[i].Comments = append(post.Comments[:j], post.Comments[j+1:]...)
                     savePost(posts[i])
-                    log.Printf("Comment %d deleted from post %d by admin %s from IP: %s", commentID, postID, username, r.RemoteAddr)
+                    log.Printf("Comment %d and %d replies deleted from post %d by admin %s from IP: %s", 
+                        commentID, deletedReplies, postID, username, r.RemoteAddr)
                     w.WriteHeader(http.StatusOK)
-                    fmt.Fprintf(w, "Comment %d deleted from post %d", commentID, postID)
+                    fmt.Fprintf(w, "Comment %d and %d replies deleted from post %d", 
+                        commentID, deletedReplies, postID)
                     return
                 }
             }
@@ -869,7 +884,7 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
         Path:  "/",
     })
     log.Printf("User %s registered from IP: %s", user.Username, r.RemoteAddr)
-    w.WriteHeader(http.StatusCreated)
+    w.WriteHeader(http.StatusOK)
     fmt.Fprintf(w, "User %s created successfully", user.Username)
 }
 
