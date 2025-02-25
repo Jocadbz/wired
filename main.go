@@ -32,6 +32,7 @@ type Post struct {
     Author      string          `json:"author"`
     AuthorIP    string          `json:"authorIP,omitempty"`
     Comments    []Comment       `json:"comments"`
+    Replies     []Reply         `json:"replies,omitempty"`
     Pinned      bool            `json:"pinned"`
 }
 
@@ -42,13 +43,22 @@ type Comment struct {
     Timestamp int64  `json:"timestamp"`
 }
 
+type Reply struct {
+    ID        int    `json:"id"`
+    Text      string `json:"text"`
+    Author    string `json:"author"`
+    Timestamp int64  `json:"timestamp"`
+    CommentID int    `json:"commentId"`
+}
+
 type UserRequest struct {
     Username string `json:"username"`
     Password string `json:"password"`
 }
 
 type CommentRequest struct {
-    Text string `json:"text"`
+    Text      string `json:"text"`
+    CommentID *int   `json:"commentId,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -62,7 +72,6 @@ type Session struct {
 
 var posts []Post
 var mutex sync.Mutex
-// Make sure you change those
 var (
     adminUser string
     adminPass string
@@ -71,24 +80,20 @@ const postsDir = "posts"
 var bannedIPs = make(map[string]bool)
 var sessions = make(map[string]Session)
 
-// Rate limiting: 10 requests per minute per IP
 var rateLimiters = make(map[string]*rate.Limiter)
 var rateMutex sync.Mutex
 const rateLimit = 10
 const rateWindow = time.Minute
 
-// Logging setup
 var logFile *os.File
 
 func init() {
-    // Read admin username from file
     userBytes, err1 := ioutil.ReadFile("adminUser")
     if err1 != nil {
         log.Fatalf("Error reading adminUser file: %v", err1)
     }
     adminUser = strings.TrimSpace(string(userBytes))
 
-    // Read admin password from file
     passBytes, err2 := ioutil.ReadFile("adminPassword")
     if err2 != nil {
         log.Fatalf("Error reading adminPassword file: %v", err2)
@@ -102,12 +107,11 @@ func init() {
     }
     log.SetOutput(logFile)
 
-    // Create posts directory if it doesn't exist
     if err := os.MkdirAll(postsDir, 0755); err != nil {
         log.Fatal("Error creating posts directory:", err)
     }
 
-    loadPosts() // Load posts at startup
+    loadPosts()
 }
 
 func loadPosts() {
@@ -120,11 +124,10 @@ func loadPosts() {
         log.Printf("Error reading posts directory: %v", err)
     }
 
-    // If no posts, initialize with examples
     if len(files) == 0 {
         posts = []Post{
-            {ID: 1, Title: "Example Post", URL: "https://example.com", Description: "An example post", ImageURL: "https://example.com/img.jpg", Votes: 5, Timestamp: 1677654321, Voters: make(map[string]bool), Author: "admin", AuthorIP: "127.0.0.1", Comments: []Comment{}},
-            {ID: 2, Title: "Another Cool Post", URL: "https://another.com", Description: "Something interesting", ImageURL: "https://another.com/pic.png", Votes: 2, Timestamp: 1677654322, Voters: make(map[string]bool), Author: "user1", AuthorIP: "127.0.0.1", Comments: []Comment{}},
+            {ID: 1, Title: "Example Post", URL: "https://example.com", Description: "An example post", ImageURL: "https://example.com/img.jpg", Votes: 5, Timestamp: 1677654321, Voters: make(map[string]bool), Author: "admin", AuthorIP: "127.0.0.1", Comments: []Comment{}, Replies: []Reply{}},
+            {ID: 2, Title: "Another Cool Post", URL: "https://another.com", Description: "Something interesting", ImageURL: "https://another.com/pic.png", Votes: 2, Timestamp: 1677654322, Voters: make(map[string]bool), Author: "user1", AuthorIP: "127.0.0.1", Comments: []Comment{}, Replies: []Reply{}},
         }
         for _, post := range posts {
             savePost(post)
@@ -133,7 +136,6 @@ func loadPosts() {
         return
     }
 
-    // Load posts from files
     for _, file := range files {
         if !strings.HasSuffix(file.Name(), ".json") {
             continue
@@ -153,6 +155,9 @@ func loadPosts() {
         }
         if post.Comments == nil {
             post.Comments = []Comment{}
+        }
+        if post.Replies == nil {
+            post.Replies = []Reply{}
         }
         posts = append(posts, post)
     }
@@ -290,7 +295,6 @@ func createPost(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Length limits
     if len(newPost.Title) > 200 {
         log.Printf("Title too long from IP: %s", r.RemoteAddr)
         sendError(w, "Title must be 200 characters or less", http.StatusBadRequest)
@@ -312,7 +316,6 @@ func createPost(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Sanitize input
     newPost.Title = sanitizeInput(newPost.Title)
     newPost.Description = sanitizeInput(newPost.Description)
     newPost.URL = sanitizeInput(newPost.URL)
@@ -338,8 +341,9 @@ func createPost(w http.ResponseWriter, r *http.Request) {
     newPost.Author = username
     newPost.AuthorIP = r.RemoteAddr
     newPost.Comments = []Comment{}
+    newPost.Replies = []Reply{}
     posts = append(posts, newPost)
-    savePost(newPost) // Save the new post
+    savePost(newPost)
 
     log.Printf("Post created by %s from IP: %s, ID: %d", username, r.RemoteAddr, newPost.ID)
     w.Header().Set("Content-Type", "application/json")
@@ -386,7 +390,7 @@ func upvotePost(w http.ResponseWriter, r *http.Request) {
             }
             posts[i].Votes++
             posts[i].Voters[username] = true
-            savePost(posts[i]) // Save updated post
+            savePost(posts[i])
             log.Printf("Upvote added by %s on post %d from IP: %s", username, id, r.RemoteAddr)
             w.Header().Set("Content-Type", "application/json")
             json.NewEncoder(w).Encode(posts[i])
@@ -431,7 +435,7 @@ func deletePost(w http.ResponseWriter, r *http.Request) {
                 return
             }
             posts = append(posts[:i], posts[i+1:]...)
-            deletePostFile(id) // Delete the post file
+            deletePostFile(id)
             log.Printf("Post %d deleted by %s from IP: %s", id, username, r.RemoteAddr)
             w.WriteHeader(http.StatusOK)
             fmt.Fprintf(w, "Post %d deleted", id)
@@ -471,7 +475,7 @@ func pinPost(w http.ResponseWriter, r *http.Request) {
     for i, post := range posts {
         if post.ID == id {
             posts[i].Pinned = true
-            savePost(posts[i]) // Save updated post
+            savePost(posts[i])
             log.Printf("Post %d pinned by admin %s from IP: %s", id, username, r.RemoteAddr)
             w.Header().Set("Content-Type", "application/json")
             json.NewEncoder(w).Encode(posts[i])
@@ -511,7 +515,7 @@ func unpinPost(w http.ResponseWriter, r *http.Request) {
     for i, post := range posts {
         if post.ID == id {
             posts[i].Pinned = false
-            savePost(posts[i]) // Save updated post
+            savePost(posts[i])
             log.Printf("Post %d unpinned by admin %s from IP: %s", id, username, r.RemoteAddr)
             w.Header().Set("Content-Type", "application/json")
             json.NewEncoder(w).Encode(posts[i])
@@ -570,22 +574,147 @@ func addComment(w http.ResponseWriter, r *http.Request) {
 
     for i, post := range posts {
         if post.ID == id {
-            newComment := Comment{
-                ID:        len(post.Comments) + 1,
-                Text:      commentReq.Text,
-                Author:    username,
-                Timestamp: time.Now().Unix(),
+            if commentReq.CommentID != nil {
+                commentExists := false
+                for _, comment := range post.Comments {
+                    if comment.ID == *commentReq.CommentID {
+                        commentExists = true
+                        break
+                    }
+                }
+                if !commentExists {
+                    sendError(w, "Parent comment not found", http.StatusNotFound)
+                    return
+                }
+
+                newReply := Reply{
+                    ID:        generateReplyID(post.Replies),
+                    Text:      commentReq.Text,
+                    Author:    username,
+                    Timestamp: time.Now().Unix(),
+                    CommentID: *commentReq.CommentID,
+                }
+                posts[i].Replies = append(posts[i].Replies, newReply)
+                savePost(posts[i])
+                log.Printf("Reply added by %s to comment %d on post %d from IP: %s", 
+                    username, *commentReq.CommentID, id, r.RemoteAddr)
+                w.Header().Set("Content-Type", "application/json")
+                json.NewEncoder(w).Encode(newReply)
+            } else {
+                newComment := Comment{
+                    ID:        len(post.Comments) + 1,
+                    Text:      commentReq.Text,
+                    Author:    username,
+                    Timestamp: time.Now().Unix(),
+                }
+                posts[i].Comments = append(posts[i].Comments, newComment)
+                savePost(posts[i])
+                log.Printf("Comment added by %s on post %d from IP: %s", username, id, r.RemoteAddr)
+                w.Header().Set("Content-Type", "application/json")
+                json.NewEncoder(w).Encode(newComment)
             }
-            posts[i].Comments = append(posts[i].Comments, newComment)
-            savePost(posts[i]) // Save updated post
-            log.Printf("Comment added by %s on post %d from IP: %s", username, id, r.RemoteAddr)
-            w.Header().Set("Content-Type", "application/json")
-            json.NewEncoder(w).Encode(newComment)
             return
         }
     }
 
     sendError(w, "Post not found", http.StatusNotFound)
+}
+
+func addReply(w http.ResponseWriter, r *http.Request) {
+    if !checkRateLimit(r.RemoteAddr) {
+        log.Printf("Rate limit exceeded for IP: %s on addReply", r.RemoteAddr)
+        sendError(w, "Too many requests", http.StatusTooManyRequests)
+        return
+    }
+
+    token := r.Header.Get("X-Session-Token")
+    username, valid := getUsernameFromToken(token)
+    if !valid {
+        log.Printf("Unauthorized attempt to add reply from IP: %s", r.RemoteAddr)
+        sendError(w, "User not authenticated", http.StatusUnauthorized)
+        return
+    }
+    if bannedIPs[r.RemoteAddr] {
+        log.Printf("Blocked banned IP: %s on addReply", r.RemoteAddr)
+        sendError(w, "Your IP is banned", http.StatusForbidden)
+        return
+    }
+
+    vars := mux.Vars(r)
+    postID, err := strconv.Atoi(vars["postId"])
+    if err != nil {
+        log.Printf("Invalid post ID from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Invalid post ID", http.StatusBadRequest)
+        return
+    }
+    commentID, err := strconv.Atoi(vars["commentId"])
+    if err != nil {
+        log.Printf("Invalid comment ID from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Invalid comment ID", http.StatusBadRequest)
+        return
+    }
+
+    var commentReq CommentRequest
+    if err := json.NewDecoder(r.Body).Decode(&commentReq); err != nil {
+        log.Printf("Error decoding JSON from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Error decoding JSON", http.StatusBadRequest)
+        return
+    }
+
+    if len(commentReq.Text) > 1000 {
+        log.Printf("Reply too long from IP: %s", r.RemoteAddr)
+        sendError(w, "Reply must be 1000 characters or less", http.StatusBadRequest)
+        return
+    }
+
+    commentReq.Text = sanitizeInput(commentReq.Text)
+
+    mutex.Lock()
+    defer mutex.Unlock()
+
+    for i, post := range posts {
+        if post.ID == postID {
+            commentExists := false
+            for _, comment := range post.Comments {
+                if comment.ID == commentID {
+                    commentExists = true
+                    break
+                }
+            }
+            if !commentExists {
+                sendError(w, "Comment not found", http.StatusNotFound)
+                return
+            }
+
+            newReply := Reply{
+                ID:        generateReplyID(post.Replies),
+                Text:      commentReq.Text,
+                Author:    username,
+                Timestamp: time.Now().Unix(),
+                CommentID: commentID,
+            }
+            
+            posts[i].Replies = append(posts[i].Replies, newReply)
+            savePost(posts[i])
+            log.Printf("Reply added by %s to comment %d on post %d from IP: %s", 
+                username, commentID, postID, r.RemoteAddr)
+            w.Header().Set("Content-Type", "application/json")
+            json.NewEncoder(w).Encode(newReply)
+            return
+        }
+    }
+
+    sendError(w, "Post not found", http.StatusNotFound)
+}
+
+func generateReplyID(replies []Reply) int {
+    maxID := 0
+    for _, reply := range replies {
+        if reply.ID > maxID {
+            maxID = reply.ID
+        }
+    }
+    return maxID + 1
 }
 
 func deleteComment(w http.ResponseWriter, r *http.Request) {
@@ -625,7 +754,7 @@ func deleteComment(w http.ResponseWriter, r *http.Request) {
             for j, comment := range post.Comments {
                 if comment.ID == commentID {
                     posts[i].Comments = append(post.Comments[:j], post.Comments[j+1:]...)
-                    savePost(posts[i]) // Save updated post
+                    savePost(posts[i])
                     log.Printf("Comment %d deleted from post %d by admin %s from IP: %s", commentID, postID, username, r.RemoteAddr)
                     w.WriteHeader(http.StatusOK)
                     fmt.Fprintf(w, "Comment %d deleted from post %d", commentID, postID)
@@ -633,6 +762,58 @@ func deleteComment(w http.ResponseWriter, r *http.Request) {
                 }
             }
             sendError(w, "Comment not found", http.StatusNotFound)
+            return
+        }
+    }
+
+    sendError(w, "Post not found", http.StatusNotFound)
+}
+
+func deleteReply(w http.ResponseWriter, r *http.Request) {
+    if !checkRateLimit(r.RemoteAddr) {
+        log.Printf("Rate limit exceeded for IP: %s on deleteReply", r.RemoteAddr)
+        sendError(w, "Too many requests", http.StatusTooManyRequests)
+        return
+    }
+
+    token := r.Header.Get("X-Session-Token")
+    username, valid := getUsernameFromToken(token)
+    if !valid || username != adminUser {
+        log.Printf("Unauthorized attempt to delete reply from IP: %s", r.RemoteAddr)
+        sendError(w, "Only the administrator can delete replies", http.StatusForbidden)
+        return
+    }
+
+    vars := mux.Vars(r)
+    postID, err := strconv.Atoi(vars["postId"])
+    if err != nil {
+        log.Printf("Invalid post ID from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Invalid post ID", http.StatusBadRequest)
+        return
+    }
+    replyID, err := strconv.Atoi(vars["replyId"])
+    if err != nil {
+        log.Printf("Invalid reply ID from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Invalid reply ID", http.StatusBadRequest)
+        return
+    }
+
+    mutex.Lock()
+    defer mutex.Unlock()
+
+    for i, post := range posts {
+        if post.ID == postID {
+            for j, reply := range post.Replies {
+                if reply.ID == replyID {
+                    posts[i].Replies = append(post.Replies[:j], post.Replies[j+1:]...)
+                    savePost(posts[i])
+                    log.Printf("Reply %d deleted from post %d by admin %s from IP: %s", replyID, postID, username, r.RemoteAddr)
+                    w.WriteHeader(http.StatusOK)
+                    fmt.Fprintf(w, "Reply %d deleted from post %d", replyID, postID)
+                    return
+                }
+            }
+            sendError(w, "Reply not found", http.StatusNotFound)
             return
         }
     }
@@ -799,11 +980,16 @@ func banUser(w http.ResponseWriter, r *http.Request) {
     for i := range posts {
         if posts[i].Author == targetUser {
             posts[i].Author = "[Banned]"
-            savePost(posts[i]) // Save updated post
+            savePost(posts[i])
         }
         for j := range posts[i].Comments {
             if posts[i].Comments[j].Author == targetUser {
                 posts[i].Comments[j].Author = "[Banned]"
+            }
+        }
+        for j := range posts[i].Replies {
+            if posts[i].Replies[j].Author == targetUser {
+                posts[i].Replies[j].Author = "[Banned]"
             }
         }
     }
@@ -881,7 +1067,9 @@ func main() {
     router.HandleFunc("/posts/{id}/pin", pinPost).Methods("POST")
     router.HandleFunc("/posts/{id}/unpin", unpinPost).Methods("POST")
     router.HandleFunc("/posts/{id}/comments", addComment).Methods("POST")
+    router.HandleFunc("/posts/{postId}/comments/{commentId}/replies", addReply).Methods("POST")
     router.HandleFunc("/posts/{postId}/comments/{commentId}", deleteComment).Methods("DELETE")
+    router.HandleFunc("/posts/{postId}/replies/{replyId}", deleteReply).Methods("DELETE")
     router.HandleFunc("/register", registerUser).Methods("POST")
     router.HandleFunc("/login", loginUser).Methods("POST")
     router.HandleFunc("/logout", logoutUser).Methods("POST")
