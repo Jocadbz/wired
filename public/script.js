@@ -1,6 +1,6 @@
-// Initialize sessionToken from cookie and currentUser from localStorage
+// Initialize sessionToken from cookie
 let sessionToken = getCookie('session_token');
-let currentUser = localStorage.getItem('currentUser') || null;
+let currentUser = null;
 
 // Function to get cookie
 function getCookie(name) {
@@ -10,8 +10,37 @@ function getCookie(name) {
     return null;
 }
 
+// Function to fetch current user from endpoint
+async function fetchCurrentUser() {
+    if (!sessionToken) {
+        currentUser = null;
+        updateUI();
+        return;
+    }
+    
+    try {
+        const response = await fetch('https://wired.jocadbz.xyz/username', {
+            method: 'GET',
+            headers: { 'X-Session-Token': sessionToken }
+        });
+        
+        if (!response.ok) {
+            currentUser = null;
+        } else {
+            const data = await response.json();
+            currentUser = data.username;
+        }
+    } catch (err) {
+        currentUser = null;
+        console.error('Error fetching username:', err);
+    }
+    updateUI();
+}
+
 // Function to load posts
-function loadPosts(sort = 'date') {
+async function loadPosts(sort = 'date') {
+    await fetchCurrentUser();
+    
     fetch(`https://wired.jocadbz.xyz/posts?sort=${sort}`, {
         headers: { 'X-Session-Token': sessionToken || '' }
     })
@@ -48,7 +77,6 @@ function loadPosts(sort = 'date') {
             });
         })
         .catch(err => alert(err.message));
-    updateUI();
 }
 
 // Function to submit a new post
@@ -180,10 +208,9 @@ function register() {
             }
             return response.text();
         })
-        .then(message => {
+        .then(async message => {
             sessionToken = getCookie('session_token');
-            currentUser = username;
-            localStorage.setItem('currentUser', username);
+            await fetchCurrentUser();
             alert(message);
             loadPosts();
         })
@@ -206,13 +233,14 @@ function login() {
             }
             return response.text();
         })
-        .then(message => {
+        .then(async message => {
             sessionToken = getCookie('session_token');
-            currentUser = username;
-            localStorage.setItem('currentUser', username);
+            await fetchCurrentUser();
             alert(message);
             loadPosts();
-            loadComments();
+            if (window.location.pathname.includes('comments.html')) {
+                loadComments();
+            }
         })
         .catch(err => alert(err.message));
 }
@@ -229,10 +257,11 @@ function logout() {
         .then(message => {
             sessionToken = null;
             currentUser = null;
-            localStorage.removeItem('currentUser');
             alert(message);
             loadPosts();
-            loadComments();
+            if (window.location.pathname.includes('comments.html')) {
+                loadComments();
+            }
         });
 }
 
@@ -281,34 +310,51 @@ function banIP() {
 }
 
 // Function to load comments and replies
-function loadComments() {
+async function loadComments() {
+    await fetchCurrentUser();
     const urlParams = new URLSearchParams(window.location.search);
     const postId = urlParams.get('postId');
     if (!postId) return;
 
-    fetch(`https://wired.jocadbz.xyz/posts`, {
-        headers: { 'X-Session-Token': sessionToken || '' }
-    })
-        .then(response => response.json())
-        .then(posts => {
-            const post = posts.find(p => p.id == postId);
-            if (!post) {
-                alert("Post not found");
-                return;
-            }
+    try {
+        const response = await fetch(`https://wired.jocadbz.xyz/posts`, {
+            headers: { 'X-Session-Token': sessionToken || '' }
+        });
+        const posts = await response.json();
+        
+        const post = posts.find(p => p.id == postId);
+        if (!post) {
+            alert("Post not found");
+            return;
+        }
 
-            document.getElementById('post-title').textContent = post.pinned ? '[PINNED] ' + post.title : post.title;
-            document.getElementById('post-url').innerHTML = post.url ? `<a href="${post.url}" target="_blank">${post.url}</a>` : '';
-            document.getElementById('post-description').textContent = post.description;
-            const imgElement = document.getElementById('post-image');
+        const titleElement = document.getElementById('post-title');
+        if (titleElement) {
+            titleElement.textContent = post.pinned ? '[PINNED] ' + post.title : post.title;
+        }
+
+        const urlElement = document.getElementById('post-url');
+        if (urlElement) {
+            urlElement.innerHTML = post.url ? `<a href="${post.url}" target="_blank">${post.url}</a>` : '';
+        }
+
+        const descElement = document.getElementById('post-description');
+        if (descElement) {
+            descElement.textContent = post.description;
+        }
+
+        const imgElement = document.getElementById('post-image');
+        if (imgElement) {
             if (post.imageUrl) {
                 imgElement.src = post.imageUrl;
                 imgElement.style.display = 'block';
             } else {
                 imgElement.style.display = 'none';
             }
+        }
 
-            const list = document.getElementById('comments-list');
+        const list = document.getElementById('comments-list');
+        if (list) {
             list.innerHTML = '';
             post.comments.forEach(comment => {
                 const div = document.createElement('div');
@@ -335,13 +381,17 @@ function loadComments() {
                 `;
                 list.appendChild(div);
             });
+        }
 
-            if (sessionToken) {
-                document.getElementById('comment-form').style.display = 'block';
-            } else {
-                document.getElementById('comment-form').style.display = 'none';
-            }
-        });
+        const commentForm = document.getElementById('comment-form');
+        if (commentForm) {
+            commentForm.style.display = sessionToken ? 'block' : 'none';
+        }
+
+    } catch (err) {
+        console.error('Error loading comments:', err);
+        alert('Failed to load comments');
+    }
 }
 
 // Function to show reply form
@@ -472,21 +522,33 @@ function deleteReply(postId, replyId) {
 
 // Update UI based on login status
 function updateUI() {
-    document.getElementById('logout-btn').style.display = sessionToken ? 'inline' : 'none';
-    document.getElementById('admin-tools').style.display = currentUser === 'admin' ? 'block' : 'none';
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.style.display = sessionToken ? 'inline' : 'none';
+    }
+    
+    const adminTools = document.getElementById('admin-tools');
+    if (adminTools) {
+        adminTools.style.display = currentUser === 'admin' ? 'block' : 'none';
+    }
 }
 
-// Bind events
-if (document.getElementById('post-form')) {
-    document.getElementById('post-form').addEventListener('submit', submitPost);
-}
-if (document.getElementById('comment-form')) {
-    document.getElementById('comment-form').addEventListener('submit', submitComment);
-}
+// Bind events and load content when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const postForm = document.getElementById('post-form');
+    if (postForm) {
+        postForm.addEventListener('submit', submitPost);
+    }
 
-// Load posts or comments on page load
-if (window.location.pathname.includes('comments.html')) {
-    loadComments();
-} else {
-    loadPosts();
-}
+    const commentForm = document.getElementById('comment-form');
+    if (commentForm) {
+        commentForm.addEventListener('submit', submitComment);
+    }
+
+    // Load posts or comments on page load
+    if (window.location.pathname.includes('comments.html')) {
+        loadComments();
+    } else {
+        loadPosts();
+    }
+});

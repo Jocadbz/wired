@@ -446,6 +446,25 @@ func deletePost(w http.ResponseWriter, r *http.Request) {
     sendError(w, "Post not found", http.StatusNotFound)
 }
 
+func getUsername(w http.ResponseWriter, r *http.Request) {
+    if !checkRateLimit(r.RemoteAddr) {
+        sendError(w, "Too many requests", http.StatusTooManyRequests)
+        return
+    }
+
+    token := r.Header.Get("X-Session-Token")
+    username, valid := getUsernameFromToken(token)
+    if !valid {
+        sendError(w, "User not authenticated", http.StatusUnauthorized)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(struct {
+        Username string `json:"username"`
+    }{Username: username})
+}
+
 func pinPost(w http.ResponseWriter, r *http.Request) {
     if !checkRateLimit(r.RemoteAddr) {
         log.Printf("Rate limit exceeded for IP: %s on pinPost", r.RemoteAddr)
@@ -1090,6 +1109,7 @@ func main() {
     router.HandleFunc("/logout", logoutUser).Methods("POST")
     router.HandleFunc("/ban/user/{username}", banUser).Methods("POST")
     router.HandleFunc("/ban/ip/{ip}", banIP).Methods("POST")
+    router.HandleFunc("/username", getUsername).Methods("GET")
 
     router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 
