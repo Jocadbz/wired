@@ -15,6 +15,14 @@
       <button onclick="window.location.href='about.html'">About</button>
       <button onclick="window.location.href='rules.html'">Rules</button>
     </nav>
+    <div id="auth">
+      <input type="text" id="username" placeholder="Username">
+      <input type="password" id="password" placeholder="Password">
+      <button onclick="register()">Register</button>
+      <button onclick="login()">Login</button>
+      <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
+      <button id="profile-btn" onclick="goToProfile()" style="display: none;">Profile</button>
+    </div>
     <h2>Rules & Guidelines</h2>
     <div class="rules-content">
       <p>- Keep posts on topic (Anything tech, programming or hardware)</p>

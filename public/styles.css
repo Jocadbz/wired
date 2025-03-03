@@ -192,3 +192,34 @@ button:hover {
 .reply-form button {
   align-self: flex-start;
 }
+
+/* Styles for profile page */
+#profile-image {
+  width: 120px; /* 4:3 ratio */
+  height: 90px;
+  object-fit: cover;
+  border: 2px solid #00ff00;
+  margin-bottom: 10px;
+}
+
+#about-me {
+  margin-bottom: 20px;
+}
+
+#edit-profile {
+  margin-top: 20px;
+}
+
+#edit-profile textarea {
+  width: 100%;
+  height: 100px;
+  background-color: #1a1a1a;
+  color: #00ff00;
+  border: 1px solid #555555;
+  padding: 5px;
+}
+
+#edit-profile input {
+  width: 100%;
+  margin-bottom: 10px;
+}

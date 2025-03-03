@@ -70,6 +70,11 @@ type Session struct {
     Token    string
 }
 
+type UserProfile struct {
+    AboutMe      string `json:"aboutMe"`
+    ProfileImage string `json:"profileImage"`
+}
+
 var posts []Post
 var mutex sync.Mutex
 var (
@@ -77,6 +82,7 @@ var (
     adminPass string
 )
 const postsDir = "posts"
+const profilesDir = "profile_page"
 var bannedIPs = make(map[string]bool)
 var sessions = make(map[string]Session)
 
@@ -111,7 +117,12 @@ func init() {
         log.Fatal("Error creating posts directory:", err)
     }
 
+    if err := os.MkdirAll(profilesDir, 0755); err != nil {
+        log.Fatal("Error creating profiles directory:", err)
+    }
+
     loadPosts()
+    ensureProfileFiles()
 }
 
 func loadPosts() {
@@ -183,9 +194,58 @@ func deletePostFile(id int) {
     }
 }
 
+func loadProfile(username string) (UserProfile, error) {
+    filePath := filepath.Join(profilesDir, username+".json")
+    data, err := ioutil.ReadFile(filePath)
+    if err != nil {
+        if os.IsNotExist(err) {
+            return UserProfile{}, nil // Return empty profile if file doesn't exist
+        }
+        return UserProfile{}, err
+    }
+    var profile UserProfile
+    if err := json.Unmarshal(data, &profile); err != nil {
+        return UserProfile{}, err
+    }
+    return profile, nil
+}
+
+func saveProfile(username string, profile UserProfile) error {
+    data, err := json.MarshalIndent(profile, "", "  ")
+    if err != nil {
+        return err
+    }
+    filePath := filepath.Join(profilesDir, username+".json")
+    return ioutil.WriteFile(filePath, data, 0644)
+}
+
+func ensureProfileFiles() {
+    usersDir := "users"
+    files, err := ioutil.ReadDir(usersDir)
+    if err != nil {
+        log.Printf("Error reading users directory: %v", err)
+        return
+    }
+    for _, file := range files {
+        if strings.HasSuffix(file.Name(), ".user") {
+            username := strings.TrimSuffix(file.Name(), ".user")
+            filePath := filepath.Join(profilesDir, username+".json")
+            if _, err := os.Stat(filePath); os.IsNotExist(err) {
+                defaultProfile := UserProfile{
+                    AboutMe:      "",
+                    ProfileImage: "default_profile.png",
+                }
+                if err := saveProfile(username, defaultProfile); err != nil {
+                    log.Printf("Error creating profile for %s: %v", username, err)
+                }
+            }
+        }
+    }
+}
+
 func sanitizeInput(input string) string {
-    input = strings.ReplaceAll(input, "<", "<")
-    input = strings.ReplaceAll(input, ">", ">")
+    input = strings.ReplaceAll(input, "<", "&lt;")
+    input = strings.ReplaceAll(input, ">", "&gt;")
     return input
 }
 
@@ -772,7 +832,6 @@ func deleteComment(w http.ResponseWriter, r *http.Request) {
         if post.ID == postID {
             for j, comment := range post.Comments {
                 if comment.ID == commentID {
-                    // Delete all replies to this comment first
                     newReplies := []Reply{}
                     deletedReplies := 0
                     for _, reply := range post.Replies {
@@ -783,8 +842,6 @@ func deleteComment(w http.ResponseWriter, r *http.Request) {
                         }
                     }
                     posts[i].Replies = newReplies
-
-                    // Now delete the comment
                     posts[i].Comments = append(post.Comments[:j], post.Comments[j+1:]...)
                     savePost(posts[i])
                     log.Printf("Comment %d and %d replies deleted from post %d by admin %s from IP: %s", 
@@ -892,6 +949,16 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
         log.Printf("Error saving user %s from IP: %s: %v", user.Username, r.RemoteAddr, err)
         sendError(w, "Error saving user", http.StatusInternalServerError)
         return
+    }
+
+    // Create default profile for new user
+    defaultProfile := UserProfile{
+        AboutMe:      "",
+        ProfileImage: "default_profile.png",
+    }
+    if err := saveProfile(user.Username, defaultProfile); err != nil {
+        log.Printf("Error creating profile for %s: %v", user.Username, err)
+        // Continue despite profile creation failure to avoid breaking registration
     }
 
     token := uuid.New().String()
@@ -1061,6 +1128,65 @@ func banIP(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "IP %s banned", ip)
 }
 
+func getUserProfile(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    username := vars["username"]
+
+    profile, err := loadProfile(username)
+    if err != nil {
+        log.Printf("Error loading profile for %s: %v", username, err)
+        sendError(w, "Error loading profile", http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(profile)
+}
+
+func updateUserProfile(w http.ResponseWriter, r *http.Request) {
+    if !checkRateLimit(r.RemoteAddr) {
+        log.Printf("Rate limit exceeded for IP: %s on updateUserProfile", r.RemoteAddr)
+        sendError(w, "Too many requests", http.StatusTooManyRequests)
+        return
+    }
+
+    token := r.Header.Get("X-Session-Token")
+    username, valid := getUsernameFromToken(token)
+    if !valid {
+        log.Printf("Unauthorized attempt to update profile from IP: %s", r.RemoteAddr)
+        sendError(w, "User not authenticated", http.StatusUnauthorized)
+        return
+    }
+
+    vars := mux.Vars(r)
+    targetUsername := vars["username"]
+    if username != targetUsername {
+        log.Printf("User %s attempted to update profile of %s from IP: %s", username, targetUsername, r.RemoteAddr)
+        sendError(w, "You can only update your own profile", http.StatusForbidden)
+        return
+    }
+
+    var profile UserProfile
+    if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+        log.Printf("Error decoding JSON from IP: %s: %v", r.RemoteAddr, err)
+        sendError(w, "Error decoding JSON", http.StatusBadRequest)
+        return
+    }
+
+    profile.AboutMe = sanitizeInput(profile.AboutMe)
+    profile.ProfileImage = sanitizeInput(profile.ProfileImage)
+
+    if err := saveProfile(username, profile); err != nil {
+        log.Printf("Error saving profile for %s: %v", username, err)
+        sendError(w, "Error saving profile", http.StatusInternalServerError)
+        return
+    }
+
+    log.Printf("Profile updated for %s from IP: %s", username, r.RemoteAddr)
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(profile)
+}
+
 func saveBannedIPs() {
     var lines []string
     for ip := range bannedIPs {
@@ -1110,6 +1236,8 @@ func main() {
     router.HandleFunc("/ban/user/{username}", banUser).Methods("POST")
     router.HandleFunc("/ban/ip/{ip}", banIP).Methods("POST")
     router.HandleFunc("/username", getUsername).Methods("GET")
+    router.HandleFunc("/profiles/{username}", getUserProfile).Methods("GET")
+    router.HandleFunc("/profiles/{username}", updateUserProfile).Methods("PUT")
 
     router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 

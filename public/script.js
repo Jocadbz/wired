@@ -37,6 +37,15 @@ async function fetchCurrentUser() {
     updateUI();
 }
 
+// Function to go to the user's profile
+function goToProfile() {
+    if (currentUser) {
+        window.location.href = `profile.html?username=${currentUser}`;
+    } else {
+        alert("You need to be logged in to view your profile");
+    }
+}
+
 // Function to load posts
 async function loadPosts(sort = 'date') {
     await fetchCurrentUser();
@@ -61,7 +70,7 @@ async function loadPosts(sort = 'date') {
                     ${post.url ? `<a href="${post.url}" target="_blank">${post.pinned ? '[PINNED] ' + post.title : post.title}</a>` : `<span>${post.pinned ? '[PINNED] ' + post.title : post.title}</span>`} (${post.votes} votes)
                     <p>${post.description}</p>
                     ${post.imageUrl ? `<img src="${post.imageUrl}" alt="Post image">` : ''}
-                    <p>By: ${post.author}${currentUser === 'admin' && post.authorIP ? ' (IP: ' + post.authorIP + ')' : ''} | <a href="comments.html?postId=${post.id}">Comments (${(post.comments || []).length + (post.replies || []).length})</a></p>
+                    <p>By: <a href="profile.html?username=${post.author}">${post.author}</a>${currentUser === 'admin' && post.authorIP ? ' (IP: ' + post.authorIP + ')' : ''} | <a href="comments.html?postId=${post.id}">Comments (${(post.comments || []).length + (post.replies || []).length})</a></p>
                     ${(currentUser === post.author || currentUser === 'admin') ? `
                         <button class="delete-btn" onclick="deletePost(${post.id})">Delete</button>
                     ` : ''}
@@ -366,7 +375,7 @@ async function loadComments() {
                     replies.forEach(reply => {
                         repliesHTML += `
                             <div class="reply">
-                                <p>${reply.text} (By: ${reply.author})</p>
+                                <p>${reply.text} (By: <a href="profile.html?username=${reply.author}">${reply.author}</a>)</p>
                                 ${currentUser === 'admin' ? `<button class="delete-btn" onclick="deleteReply(${post.id}, ${reply.id})">Delete</button>` : ''}
                             </div>
                         `;
@@ -374,7 +383,7 @@ async function loadComments() {
                     repliesHTML += '</div>';
                 }
                 div.innerHTML = `
-                    <p>${comment.text} (By: ${comment.author})</p>
+                    <p>${comment.text} (By: <a href="profile.html?username=${comment.author}">${comment.author}</a>)</p>
                     ${repliesHTML}
                     ${sessionToken ? `<button class="reply-btn" onclick="showReplyForm(${post.id}, ${comment.id})">Reply</button>` : ''}
                     ${currentUser === 'admin' ? `<button class="delete-btn" onclick="deleteComment(${post.id}, ${comment.id})">Delete</button>` : ''}
@@ -520,11 +529,152 @@ function deleteReply(postId, replyId) {
         .catch(err => alert(err.message));
 }
 
+// Function to load profile
+async function loadProfile() {
+    await fetchCurrentUser();
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username');
+    if (!username) {
+        alert("No username specified");
+        return;
+    }
+    
+    try {
+        const profileResponse = await fetch(`https://wired.jocadbz.xyz/profiles/${username}`, {
+            headers: { 'X-Session-Token': sessionToken || '' }
+        });
+        if (!profileResponse.ok) {
+            throw new Error('Error loading profile');
+        }
+        const profile = await profileResponse.json();
+        
+        const profileImage = document.getElementById('profile-image');
+        if (profileImage) {
+            profileImage.src = profile.profileImage || 'default_profile.png';
+        }
+        
+        const aboutMe = document.getElementById('about-me');
+        if (aboutMe) {
+            aboutMe.textContent = profile.aboutMe || "This user hasn't written his about me yet...";
+        }
+        
+        const profileUsername = document.getElementById('profile-username');
+        if (profileUsername) {
+            profileUsername.textContent = username;
+        }
+        
+        const postsResponse = await fetch('https://wired.jocadbz.xyz/posts', {
+            headers: { 'X-Session-Token': sessionToken || '' }
+        });
+        if (!postsResponse.ok) {
+            throw new Error('Error loading posts');
+        }
+        const allPosts = await postsResponse.json();
+        
+        const userPosts = allPosts.filter(post => post.author === username);
+        const postsList = document.getElementById('user-posts');
+        if (postsList) {
+            postsList.innerHTML = '';
+            userPosts.forEach(post => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="comments.html?postId=${post.id}">${post.title}</a> (${post.votes} votes)`;
+                postsList.appendChild(li);
+            });
+        }
+        
+        let userComments = [];
+        allPosts.forEach(post => {
+            // Safely handle comments and replies if they are undefined or null
+            const comments = Array.isArray(post.comments) ? post.comments : [];
+            const replies = Array.isArray(post.replies) ? post.replies : [];
+
+            comments.forEach(comment => {
+                if (comment.author === username) {
+                    userComments.push({ postId: post.id, text: comment.text, type: 'comment' });
+                }
+            });
+            replies.forEach(reply => {
+                if (reply.author === username) {
+                    userComments.push({ postId: post.id, text: reply.text, type: 'reply' });
+                }
+            });
+        });
+        
+        const commentsList = document.getElementById('user-comments');
+        if (commentsList) {
+            commentsList.innerHTML = '';
+            userComments.forEach(comment => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="comments.html?postId=${comment.postId}">${comment.type}: ${comment.text}</a>`;
+                commentsList.appendChild(li);
+            });
+        }
+        
+        const editProfile = document.getElementById('edit-profile');
+        if (editProfile) {
+            if (currentUser === username) {
+                editProfile.style.display = 'block';
+                document.getElementById('about-me-input').value = profile.aboutMe || '';
+                document.getElementById('profile-image-input').value = profile.profileImage || '';
+            } else {
+                editProfile.style.display = 'none';
+            }
+        }
+        
+    } catch (err) {
+        console.error('Error loading profile:', err);
+        alert('Failed to load profile');
+    }
+}
+
+// Function to submit profile updates
+function submitProfile(e) {
+    e.preventDefault();
+    if (!sessionToken) {
+        alert("You need to be logged in to edit your profile");
+        return;
+    }
+    const aboutMe = document.getElementById('about-me-input').value;
+    const profileImage = document.getElementById('profile-image-input').value;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const username = urlParams.get('username');
+    
+    if (username !== currentUser) {
+        alert("You can only edit your own profile");
+        return;
+    }
+    
+    fetch(`https://wired.jocadbz.xyz/profiles/${username}`, {
+        method: 'PUT',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'X-Session-Token': sessionToken
+        },
+        body: JSON.stringify({ aboutMe, profileImage })
+    })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.error); });
+            }
+            return response.json();
+        })
+        .then(() => {
+            loadProfile();
+        })
+        .catch(err => alert(err.message));
+}
+
 // Update UI based on login status
 function updateUI() {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.style.display = sessionToken ? 'inline' : 'none';
+    }
+    
+    const profileBtn = document.getElementById('profile-btn');
+    if (profileBtn) {
+        profileBtn.style.display = sessionToken ? 'inline' : 'none';
     }
     
     const adminTools = document.getElementById('admin-tools');
@@ -545,8 +695,14 @@ document.addEventListener('DOMContentLoaded', () => {
         commentForm.addEventListener('submit', submitComment);
     }
 
-    // Load posts or comments on page load
-    if (window.location.pathname.includes('comments.html')) {
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('submit', submitProfile);
+    }
+
+    if (window.location.pathname.includes('profile.html')) {
+        loadProfile();
+    } else if (window.location.pathname.includes('comments.html')) {
         loadComments();
     } else {
         loadPosts();

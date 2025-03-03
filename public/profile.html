@@ -23,15 +23,22 @@
       <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
       <button id="profile-btn" onclick="goToProfile()" style="display: none;">Profile</button>
     </div>
-    <h2>About the Wired</h2>
-    <div class="about-content">
-      <p>This is the wired, a place to post about anything tech related. Please share and comment!</p>
-      <p>FAQ:</p>
-      <p>- Why the name?<br>Watch Serial Experiments Lain.</p>
-      <p>- I posted sometime ago, and my post is gone!<br>Posts are extremely volatile. The server only displays the last 60 posted, <s>and on every update, the posts are reset. Sorry!</s> Nevermind, your posts are now saved. Cheers!</p>
-      <p>- What is being shared from my data?<br>We only store your username, password, and public IP. Also, we took measures to make everything safe, but refrain from sharing anything private on this site. Any damage you suffer from the use of this site is NOT my responsability.</p>
-      <p>- How do I contact the site's admin?<br>This site was created by @jocadbz on twitter. You can DM him there, or send a E-mail on joaquimmadureira at protonmail dot com.</p>
-      <p>- Is this site open-source?<br>Yes! Check out <a href="https://github.com/Jocadbz/wired">the project's github!</a></p>
+    <h2 id="profile-username"></h2>
+    <div id="profile-image-container">
+      <img id="profile-image" alt="Profile Image">
+    </div>
+    <p id="about-me"></p>
+    <h3>Posts</h3>
+    <ol id="user-posts"></ol>
+    <h3>Comments</h3>
+    <ol id="user-comments"></ol>
+    <div id="edit-profile" style="display: none;">
+      <h3>Edit Profile</h3>
+      <form id="profile-form">
+        <textarea id="about-me-input" placeholder="About Me"></textarea>
+        <input type="url" id="profile-image-input" placeholder="Profile Image URL">
+        <button type="submit">Save</button>
+      </form>
     </div>
   </div>
   <script src="script.js"></script>
