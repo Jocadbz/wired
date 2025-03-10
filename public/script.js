@@ -88,6 +88,27 @@ async function loadPosts(sort = 'date') {
         .catch(err => alert(err.message));
 }
 
+// Function to show the post form modal
+function showPostForm() {
+    if (!sessionToken) {
+        alert("You need to be logged in to create a post");
+        return;
+    }
+    const modal = document.getElementById('post-modal');
+    const modalContent = modal.querySelector('.modal-content');
+    modalContent.style.left = '50%';
+    modalContent.style.top = '50%';
+    modalContent.style.transform = 'translate(-50%, -50%)';
+    modal.style.display = 'block';
+}
+
+// Function to hide the post form modal
+function hidePostForm() {
+    const modal = document.getElementById('post-modal');
+    modal.style.display = 'none';
+    document.getElementById('post-form').reset();
+}
+
 // Function to submit a new post
 function submitPost(e) {
     e.preventDefault();
@@ -115,7 +136,7 @@ function submitPost(e) {
             return response.json();
         })
         .then(newPost => {
-            document.getElementById('post-form').reset();
+            hidePostForm();
             loadPosts();
         })
         .catch(err => alert(err.message));
@@ -584,7 +605,6 @@ async function loadProfile() {
         
         let userComments = [];
         allPosts.forEach(post => {
-            // Safely handle comments and replies if they are undefined or null
             const comments = Array.isArray(post.comments) ? post.comments : [];
             const replies = Array.isArray(post.replies) ? post.replies : [];
 
@@ -681,6 +701,11 @@ function updateUI() {
     if (adminTools) {
         adminTools.style.display = currentUser === 'admin' ? 'block' : 'none';
     }
+    
+    const newThreadBtn = document.getElementById('new-thread-btn');
+    if (newThreadBtn) {
+        newThreadBtn.style.display = sessionToken ? 'block' : 'none';
+    }
 }
 
 // Bind events and load content when DOM is ready
@@ -706,5 +731,48 @@ document.addEventListener('DOMContentLoaded', () => {
         loadComments();
     } else {
         loadPosts();
+    }
+
+    // Make the modal draggable
+    const modal = document.getElementById('post-modal');
+    if (modal) {
+        const modalContent = modal.querySelector('.modal-content');
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        modalContent.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('input, textarea, button, .close-btn')) {
+                isDragging = true;
+                const rect = modalContent.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                modalContent.style.left = `${rect.left}px`;
+                modalContent.style.top = `${rect.top}px`;
+                modalContent.style.transform = 'none';
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                modalContent.style.left = `${e.clientX - offsetX}px`;
+                modalContent.style.top = `${e.clientY - offsetY}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    }
+
+    // Add event listener for cancel button
+    const cancelBtn = document.getElementById('cancel-btn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', hidePostForm);
+    }
+
+    // Add event listener for close button
+    const closeBtn = document.getElementById('close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hidePostForm);
     }
 });

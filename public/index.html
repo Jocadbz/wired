@@ -23,13 +23,22 @@
       <button id="logout-btn" onclick="logout()" style="display: none;">Logout</button>
       <button id="profile-btn" onclick="goToProfile()" style="display: none;">Profile</button>
     </div>
-    <form id="post-form">
-      <input type="text" id="title" placeholder="Title" required>
-      <input type="url" id="url" placeholder="URL (optional)">
-      <input type="text" id="description" placeholder="Description" required>
-      <input type="url" id="imageUrl" placeholder="Image URL (optional)">
-      <button type="submit">Submit</button>
-    </form>
+    <button id="new-thread-btn" onclick="showPostForm()">New Thread</button>
+    <div id="post-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn" onclick="hidePostForm()">×</span>
+        <form id="post-form">
+          <input type="text" id="title" placeholder="Title" required>
+          <input type="url" id="url" placeholder="URL (optional)">
+          <input type="url" id="imageUrl" placeholder="Image URL (optional)">
+          <textarea id="description" placeholder="Description" required></textarea>
+          <div class="form-buttons">
+            <button type="submit">Submit</button>
+            <button type="button" id="cancel-btn">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <div id="admin-tools" style="display: none;">
       <input type="text" id="ban-username" placeholder="Ban Username">
       <button onclick="banUser()">Ban</button>

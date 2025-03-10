@@ -70,18 +70,27 @@ nav {
   margin-bottom: 1em;
 }
 
-#auth, form, #admin-tools, .sort-buttons {
+#auth, #admin-tools, .sort-buttons {
   margin-bottom: 20px;
   text-align: center;
 }
 
-input {
+input, textarea {
   margin-right: 10px;
   padding: 5px;
-  width: 150px;
   background-color: #1a1a1a; /* Darker gray */
   color: #00ff00;
   border: 1px solid #555555; /* Medium gray */
+}
+
+input {
+  width: 150px;
+}
+
+textarea {
+  width: 100%;
+  height: 100px;
+  resize: vertical; /* Allow vertical resizing only */
 }
 
 button {
@@ -222,4 +231,69 @@ button:hover {
 #edit-profile input {
   width: 100%;
   margin-bottom: 10px;
+}
+
+/* Styles for the new thread button and modal */
+#new-thread-btn {
+  display: block;
+  margin: 20px auto;
+  padding: 10px 20px;
+  font-size: 18px;
+}
+
+.modal {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* No overlay */
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #1a1a1a; /* Dark gray background */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  width: 300px; /* Smaller width */
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 10px #00ff00;
+  cursor: move;
+}
+
+.close-btn {
+  color: #00ff00;
+  float: right;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: #aaaaaa;
+}
+
+#post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#post-form input, #post-form textarea {
+  width: 100%;
+  margin-right: 0;
+}
+
+#post-form textarea {
+  height: 150px; /* Larger description box, like 4chan */
+}
+
+.form-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
 }
