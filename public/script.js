@@ -370,14 +370,25 @@ async function loadComments() {
         const response = await fetch(`https://wired.jocadbz.xyz/posts`, {
             headers: { 'X-Session-Token': sessionToken || '' }
         });
-        const posts = await response.json();
+        if (!response.ok) {
+            throw new Error('Error loading posts');
+        }
+        const data = await response.json();
         
-        const post = posts.find(p => p.id == postId);
+        // Ensure data.posts is an array before proceeding
+        if (!Array.isArray(data.posts)) {
+            console.error('data.posts is not an array:', data);
+            throw new Error('Invalid data structure from server');
+        }
+
+        // Find the specific post
+        const post = data.posts.find(p => p.id == postId);
         if (!post) {
             alert("Post not found");
             return;
         }
 
+        // Update the UI with post details
         const titleElement = document.getElementById('post-title');
         if (titleElement) {
             titleElement.textContent = post.pinned ? '[PINNED] ' + post.title : post.title;
@@ -403,6 +414,7 @@ async function loadComments() {
             }
         }
 
+        // Load comments
         const list = document.getElementById('comments-list');
         if (list) {
             list.innerHTML = '';
@@ -610,9 +622,10 @@ async function loadProfile() {
         if (!postsResponse.ok) {
             throw new Error('Error loading posts');
         }
-        const allPosts = await postsResponse.json();
-        
+        const responseData = await postsResponse.json();
+        const allPosts = responseData.posts; // Correctly access the array
         const userPosts = allPosts.filter(post => post.author === username);
+        
         const postsList = document.getElementById('user-posts');
         if (postsList) {
             postsList.innerHTML = '';
@@ -627,7 +640,6 @@ async function loadProfile() {
         allPosts.forEach(post => {
             const comments = Array.isArray(post.comments) ? post.comments : [];
             const replies = Array.isArray(post.replies) ? post.replies : [];
-
             comments.forEach(comment => {
                 if (comment.author === username) {
                     userComments.push({ postId: post.id, text: comment.text, type: 'comment' });
