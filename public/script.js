@@ -1,6 +1,8 @@
 // Initialize sessionToken from cookie
 let sessionToken = getCookie('session_token');
 let currentUser = null;
+let currentPage = 1;
+const limit = 10;
 
 // Function to get cookie
 function getCookie(name) {
@@ -47,21 +49,22 @@ function goToProfile() {
 }
 
 // Function to load posts
-async function loadPosts(sort = 'date') {
+async function loadPosts(sort = 'date', page = 1) {
+    currentPage = page;
     await fetchCurrentUser();
     
-    fetch(`https://wired.jocadbz.xyz/posts?sort=${sort}`, {
+    fetch(`https://wired.jocadbz.xyz/posts?sort=${sort}&page=${page}&limit=${limit}`, {
         headers: { 'X-Session-Token': sessionToken || '' }
     })
         .then(response => {
             if (!response.ok) throw new Error('Error loading posts');
             return response.json();
         })
-        .then(posts => {
+        .then(data => {
             const list = document.getElementById('posts-list');
             if (!list) return;
             list.innerHTML = '';
-            posts.forEach(post => {
+            data.posts.forEach(post => {
                 const li = document.createElement('li');
                 li.className = 'post' + (post.pinned ? ' pinned' : '');
                 li.innerHTML = `
@@ -84,6 +87,23 @@ async function loadPosts(sort = 'date') {
                 `;
                 list.appendChild(li);
             });
+            
+            // Add pagination buttons
+            const pagination = document.createElement('div');
+            pagination.className = 'pagination';
+            if (data.page > 1) {
+                const prevBtn = document.createElement('button');
+                prevBtn.textContent = 'Previous';
+                prevBtn.onclick = () => loadPosts(sort, data.page - 1);
+                pagination.appendChild(prevBtn);
+            }
+            if (data.page < data.totalPages) {
+                const nextBtn = document.createElement('button');
+                nextBtn.textContent = 'Next';
+                nextBtn.onclick = () => loadPosts(sort, data.page + 1);
+                pagination.appendChild(nextBtn);
+            }
+            list.appendChild(pagination);
         })
         .catch(err => alert(err.message));
 }

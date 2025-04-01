@@ -297,3 +297,23 @@ button:hover {
   gap: 10px;
   margin-top: 10px;
 }
+
+/* Pagination styles */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.pagination button {
+  padding: 5px 10px;
+  background-color: #333333;
+  color: #00ff00;
+  border: 0.2em solid #555555;
+  cursor: pointer;
+}
+
+.pagination button:hover {
+  background-color: #555555;
+}
