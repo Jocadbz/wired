@@ -3,6 +3,14 @@ let sessionToken = getCookie('session_token');
 let currentUser = null;
 let currentPage = 1;
 const limit = 10;
+const apiBaseUrl = 'https://wired.jocadbz.xyz';
+
+function proxiedImage(url) {
+    if (!url) {
+        return '';
+    }
+    return /^https?:\/\//i.test(url) ? `${apiBaseUrl}/image-proxy?url=${encodeURIComponent(url)}` : url;
+}
 
 // Function to get cookie
 function getCookie(name) {
@@ -72,7 +80,7 @@ async function loadPosts(sort = 'date', page = 1) {
                     <button class="upvote-btn" onclick="upvote(${post.id})" ${!sessionToken ? 'disabled' : ''}>▲</button>
                     ${post.url ? `<a href="${post.url}" target="_blank">${post.pinned ? '[PINNED] ' + post.title : post.title}</a>` : `<span>${post.pinned ? '[PINNED] ' + post.title : post.title}</span>`} (${post.votes} votes)
                     <p>${post.description}</p>
-                    ${post.imageUrl ? `<img src="${post.imageUrl}" alt="Post image">` : ''}
+                    ${post.imageUrl ? `<img src="${proxiedImage(post.imageUrl)}" alt="Post image">` : ''}
                     <p>By: <a href="profile.html?username=${post.author}">${post.author}</a>${currentUser === 'admin' && post.authorIP ? ' (IP: ' + post.authorIP + ')' : ''} | <a href="comments.html?postId=${post.id}">Comments (${(post.comments || []).length + (post.replies || []).length})</a></p>
                     ${(currentUser === post.author || currentUser === 'admin') ? `
                         <button class="delete-btn" onclick="deletePost(${post.id})">Delete</button>
@@ -407,7 +415,7 @@ async function loadComments() {
         const imgElement = document.getElementById('post-image');
         if (imgElement) {
             if (post.imageUrl) {
-                imgElement.src = post.imageUrl;
+                imgElement.src = proxiedImage(post.imageUrl);
                 imgElement.style.display = 'block';
             } else {
                 imgElement.style.display = 'none';
@@ -603,7 +611,7 @@ async function loadProfile() {
         
         const profileImage = document.getElementById('profile-image');
         if (profileImage) {
-            profileImage.src = profile.profileImage || 'default_profile.png';
+            profileImage.src = proxiedImage(profile.profileImage) || 'default_profile.png';
         }
         
         const aboutMe = document.getElementById('about-me');
