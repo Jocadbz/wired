@@ -12,6 +12,23 @@ function proxiedImage(url) {
     return /^https?:\/\//i.test(url) ? `${apiBaseUrl}/image-proxy?url=${encodeURIComponent(url)}` : url;
 }
 
+function renderPostDescription(target, description, postId) {
+    const text = description || '';
+    const chars = Array.from(text);
+    if (chars.length <= 100) {
+        target.textContent = text;
+        return;
+    }
+
+    const truncated = chars.slice(0, 100).join('');
+    target.textContent = truncated;
+    target.append('... ');
+    const link = document.createElement('a');
+    link.href = `comments.html?postId=${postId}`;
+    link.textContent = '(See more)';
+    target.appendChild(link);
+}
+
 // Function to get cookie
 function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -79,7 +96,7 @@ async function loadPosts(sort = 'date', page = 1) {
                     ${post.pinned ? '<span>📌 [Pinned]</span> ' : ''}
                     <button class="upvote-btn" onclick="upvote(${post.id})" ${!sessionToken ? 'disabled' : ''}>▲</button>
                     ${post.url ? `<a href="${post.url}" target="_blank">${post.pinned ? '[PINNED] ' + post.title : post.title}</a>` : `<span>${post.pinned ? '[PINNED] ' + post.title : post.title}</span>`} (${post.votes} votes)
-                    <p>${post.description}</p>
+                    <p class="post-description"></p>
                     ${post.imageUrl ? `<img src="${proxiedImage(post.imageUrl)}" alt="Post image">` : ''}
                     <p>By: <a href="profile.html?username=${post.author}">${post.author}</a>${currentUser === 'admin' && post.authorIP ? ' (IP: ' + post.authorIP + ')' : ''} | <a href="comments.html?postId=${post.id}">Comments (${(post.comments || []).length + (post.replies || []).length})</a></p>
                     ${(currentUser === post.author || currentUser === 'admin') ? `
@@ -93,6 +110,10 @@ async function loadPosts(sort = 'date', page = 1) {
                         `}
                     ` : ''}
                 `;
+                const descriptionElement = li.querySelector('.post-description');
+                if (descriptionElement) {
+                    renderPostDescription(descriptionElement, post.description, post.id);
+                }
                 list.appendChild(li);
             });
             

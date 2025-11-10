@@ -547,9 +547,9 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 		sendError(w, "Title must be 200 characters or less", http.StatusBadRequest)
 		return
 	}
-	if len(newPost.Description) > 1000 {
+	if len(newPost.Description) > 4000 {
 		log.Printf("Description too long from IP: %s", r.RemoteAddr)
-		sendError(w, "Description must be 1000 characters or less", http.StatusBadRequest)
+		sendError(w, "Description must be 4000 characters or less", http.StatusBadRequest)
 		return
 	}
 	if len(newPost.URL) > 500 {
