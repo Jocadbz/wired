@@ -121,6 +121,11 @@ button:hover {
   display: block;
 }
 
+.post-description,
+#post-description {
+  white-space: pre-line;
+}
+
 #post-details img {
   max-width: 100%; /* Fit container width */
   height: auto;
